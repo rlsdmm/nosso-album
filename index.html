@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Nosso álbum 💜</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💜</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="ceu" aria-hidden="true"></div>
+
+<!-- ───── Tela da senha ───── -->
+<main id="cadeado" class="cadeado">
+  <form id="form-senha" class="carta" autocomplete="off">
+    <svg class="envelope" viewBox="0 0 160 120" aria-hidden="true">
+      <rect x="8" y="22" width="144" height="92" rx="10" class="env-corpo"/>
+      <path d="M8 32 L80 80 L152 32" class="env-dobra"/>
+      <path d="M8 114 L64 70 M152 114 L96 70" class="env-dobra"/>
+      <g class="selo">
+        <circle cx="80" cy="78" r="17"/>
+        <path d="M80 87c-1-.9-9-6.2-9-11.6 0-2.9 2.2-5 4.8-5 1.8 0 3.3 1 4.2 2.4.9-1.4 2.4-2.4 4.2-2.4 2.6 0 4.8 2.1 4.8 5 0 5.4-8 10.7-9 11.6z" class="selo-coracao"/>
+      </g>
+    </svg>
+    <h1>Um álbum só nosso</h1>
+    <p class="sub">Digite a nossa senha secreta pra abrir</p>
+    <label class="campo">
+      <span class="sr">Senha</span>
+      <input id="senha" type="password" placeholder="nossa senha…" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+      <button type="button" id="ver-senha" class="olho" aria-label="Mostrar senha">👁</button>
+    </label>
+    <label class="lembrar"><input type="checkbox" id="lembrar" checked> lembrar neste aparelho</label>
+    <button type="submit" class="botao" id="abrir">Abrir 💌</button>
+    <p class="erro" id="erro" role="alert"></p>
+  </form>
+</main>
+
+<!-- ───── Álbum ───── -->
+<div id="album" class="album" hidden>
+  <header class="topo">
+    <p class="casal" id="casal"></p>
+    <h1 id="titulo">Nossa história</h1>
+    <div class="contadores" id="contadores"></div>
+    <div class="acoes">
+      <button class="botao" id="viajar">✨ Voltar no tempo</button>
+    </div>
+    <nav class="filtros" id="filtros" aria-label="Filtrar memórias"></nav>
+  </header>
+
+  <section class="linha" id="linha" aria-label="Linha do tempo"></section>
+
+  <footer class="rodape">
+    <p>feito com 💜 pra tamanduazinha</p>
+    <button class="link" id="trancar">🔒 trancar álbum</button>
+  </footer>
+</div>
+
+<!-- ───── Foto em tela cheia ───── -->
+<div id="visor" class="visor" hidden role="dialog" aria-modal="true" aria-label="Foto">
+  <div class="visor-barra"><div id="visor-progresso"></div></div>
+  <button class="visor-btn fechar" id="visor-fechar" aria-label="Fechar">✕</button>
+  <button class="visor-btn ant" id="visor-ant" aria-label="Foto anterior">‹</button>
+  <button class="visor-btn prox" id="visor-prox" aria-label="Próxima foto">›</button>
+  <figure class="visor-foto">
+    <div class="visor-polaroid">
+      <img id="visor-img" alt="">
+      <figcaption>
+        <strong id="visor-titulo"></strong>
+        <span id="visor-data"></span>
+      </figcaption>
+    </div>
+  </figure>
+  <div class="visor-rodape">
+    <span id="visor-contagem"></span>
+    <button class="visor-play" id="visor-play">▶ passar sozinho</button>
+  </div>
+  <div class="visor-capitulo" id="visor-capitulo" aria-hidden="true"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
