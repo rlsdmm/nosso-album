@@ -118,7 +118,7 @@
   <button class="visor-btn prox" id="visor-prox" aria-label="Próxima foto">›</button>
   <figure class="visor-foto">
     <div class="visor-polaroid">
-      <img id="visor-img" alt="">
+      <div class="visor-quadro" id="visor-quadro"><img id="visor-img" alt="" draggable="false"></div>
       <figcaption>
         <strong id="visor-titulo"></strong>
         <span id="visor-data"></span>
@@ -128,6 +128,8 @@
   <div class="visor-rodape">
     <span id="visor-contagem"></span>
     <button class="visor-play" id="visor-play">▶ passar sozinho</button>
+    <button class="visor-icone" id="visor-zoom" aria-label="Dar zoom" title="Zoom (ou toque duas vezes na foto)">🔍</button>
+    <button class="visor-icone" id="visor-baixar" aria-label="Baixar foto" title="Baixar foto">⬇</button>
   </div>
   <div class="visor-capitulo" id="visor-capitulo" aria-hidden="true"></div>
 </div>

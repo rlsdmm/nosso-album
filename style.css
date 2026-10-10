@@ -277,6 +277,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .visor-foto { margin: 0; padding: 60px 16px 90px; max-width: 100%; }
 .visor-polaroid { background: var(--polaroid); padding: 12px 12px 14px; border-radius: 4px; box-shadow: 0 20px 60px rgba(0, 0, 0, .6); transition: opacity .35s, transform .35s; }
 .visor-polaroid.trocando { opacity: 0; transform: scale(.97); }
+.visor-quadro { overflow: hidden; border-radius: 2px; touch-action: none; cursor: zoom-in; line-height: 0; }
+.visor-quadro.zoom { cursor: grab; }
+.visor-quadro.zoom:active { cursor: grabbing; }
+.visor-quadro img { transform-origin: 0 0; transition: transform .25s ease; will-change: transform; user-select: none; -webkit-user-select: none; }
+.visor-quadro.gesto img { transition: none; }
+.visor-icone { background: rgba(255, 255, 255, .14); border: 0; color: #fff; width: 38px; height: 38px; border-radius: 50%; font-size: 1rem; display: grid; place-items: center; }
+.visor-icone[aria-pressed="true"] { background: linear-gradient(135deg, #b190ff, #f79acb); color: #1a0f24; }
 .visor-polaroid img { display: block; max-width: min(92vw, 1100px); max-height: calc(100vh - 230px); width: auto; height: auto; border-radius: 2px; }
 .visor figcaption { text-align: center; color: #3b2350; font-family: var(--manuscrito); padding-top: 8px; line-height: 1.2; }
 .visor figcaption strong { display: block; font-size: 1.6rem; }

@@ -400,6 +400,7 @@
 
   function fecharVisor() {
     pararTimer();
+    resetarZoom();
     tocando = false;
     $("visor").hidden = true;
     document.body.style.overflow = "";
@@ -426,6 +427,7 @@
 
   async function mostrar(i) {
     pararTimer();
+    resetarZoom();
     atual = (i + fotosVisiveis.length) % fotosVisiveis.length;
     const { mem, foto } = fotosVisiveis[atual];
     const meu = ++pedido;
@@ -483,20 +485,158 @@
     else { pararTimer(); atualizarPlay(); }
   });
   $("visor").addEventListener("click", (e) => { if (e.target.id === "visor" || e.target.classList.contains("visor-foto")) fecharVisor(); });
-  $("visor").addEventListener("pointerdown", (e) => { toqueX = e.clientX; });
+  // Deslizar pro lado fora da foto também troca de foto (na foto quem cuida é o zoom).
+  $("visor").addEventListener("pointerdown", (e) => { toqueX = e.target.closest(".visor-quadro") ? null : e.clientX; });
   $("visor").addEventListener("pointerup", (e) => {
     if (toqueX == null) return;
     const dx = e.clientX - toqueX;
     toqueX = null;
     if (Math.abs(dx) > 50) mostrar(atual + (dx < 0 ? 1 : -1));
   });
+
+  // ───────────── zoom ─────────────
+
+  const quadroZoom = $("visor-quadro");
+  const imgZoom = $("visor-img");
+  const ZOOM_MAX = 5;
+  let z = { s: 1, x: 0, y: 0 };
+  const ponteiros = new Map();
+  let gesto = null;
+  let ultimoToque = { t: 0, x: 0, y: 0 };
+
+  function aplicarZoom(animar) {
+    quadroZoom.classList.toggle("gesto", !animar);
+    quadroZoom.classList.toggle("zoom", z.s > 1);
+    imgZoom.style.transform = z.s === 1 ? "" : `translate(${z.x}px, ${z.y}px) scale(${z.s})`;
+    $("visor-zoom").setAttribute("aria-pressed", String(z.s > 1));
+  }
+
+  function limitarZoom() {
+    const w = quadroZoom.clientWidth;
+    const h = quadroZoom.clientHeight;
+    z.s = Math.min(Math.max(z.s, 1), ZOOM_MAX);
+    z.x = Math.min(0, Math.max(w - w * z.s, z.x));
+    z.y = Math.min(0, Math.max(h - h * z.s, z.y));
+  }
+
+  function resetarZoom() {
+    z = { s: 1, x: 0, y: 0 };
+    gesto = null;
+    ponteiros.clear();
+    aplicarZoom(true);
+  }
+
+  // Aproxima mantendo parado o ponto (fx, fy) da foto que está embaixo do dedo/mouse.
+  function zoomEm(fx, fy, novaEscala, animar) {
+    novaEscala = Math.min(Math.max(novaEscala, 1), ZOOM_MAX);
+    z.x = fx - (fx - z.x) * (novaEscala / z.s);
+    z.y = fy - (fy - z.y) * (novaEscala / z.s);
+    z.s = novaEscala;
+    limitarZoom();
+    if (z.s < 1.02) z = { s: 1, x: 0, y: 0 };
+    aplicarZoom(animar);
+    if (z.s > 1 && tocando) { tocando = false; pararTimer(); atualizarPlay(); }
+  }
+
+  const pontoLocal = (x, y) => {
+    const r = quadroZoom.getBoundingClientRect();
+    return [x - r.left, y - r.top];
+  };
+  const pinca = () => {
+    const [a, b] = [...ponteiros.values()];
+    return { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+  };
+
+  quadroZoom.addEventListener("pointerdown", (e) => {
+    try { quadroZoom.setPointerCapture(e.pointerId); } catch {}
+    ponteiros.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ponteiros.size === 2) gesto = { tipo: "pinca", ...pinca() };
+    else if (ponteiros.size === 1) gesto = { tipo: "arrasto", x0: e.clientX, y0: e.clientY, zx: z.x, zy: z.y, t: Date.now() };
+  });
+
+  quadroZoom.addEventListener("pointermove", (e) => {
+    if (!ponteiros.has(e.pointerId)) return;
+    ponteiros.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (gesto?.tipo === "pinca" && ponteiros.size === 2) {
+      const agora = pinca();
+      const [fx, fy] = pontoLocal(agora.mx, agora.my);
+      z.x += agora.mx - gesto.mx;
+      z.y += agora.my - gesto.my;
+      zoomEm(fx, fy, z.s * (agora.d / gesto.d), false);
+      Object.assign(gesto, agora);
+    } else if (gesto?.tipo === "arrasto" && z.s > 1) {
+      z.x = gesto.zx + (e.clientX - gesto.x0);
+      z.y = gesto.zy + (e.clientY - gesto.y0);
+      limitarZoom();
+      aplicarZoom(false);
+    }
+  });
+
+  function soltar(e) {
+    if (!ponteiros.has(e.pointerId)) return;
+    ponteiros.delete(e.pointerId);
+    const g = gesto;
+    if (ponteiros.size === 1) {
+      // Tirou um dedo da pinça: continua arrastando com o outro.
+      const [p] = ponteiros.values();
+      gesto = { tipo: "arrasto", x0: p.x, y0: p.y, zx: z.x, zy: z.y, t: 0 };
+      return;
+    }
+    gesto = null;
+    if (g?.tipo !== "arrasto" || e.type === "pointercancel") return;
+
+    const dx = e.clientX - g.x0;
+    const dy = e.clientY - g.y0;
+    if (z.s === 1 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) return mostrar(atual + (dx < 0 ? 1 : -1));
+
+    const foiToque = Math.hypot(dx, dy) < 10 && Date.now() - g.t < 300;
+    if (!foiToque) return;
+    const agora = Date.now();
+    if (agora - ultimoToque.t < 320 && Math.hypot(e.clientX - ultimoToque.x, e.clientY - ultimoToque.y) < 40) {
+      ultimoToque.t = 0;
+      const [fx, fy] = pontoLocal(e.clientX, e.clientY);
+      if (z.s > 1) resetarZoom(); else zoomEm(fx, fy, 2.5, true);
+    } else {
+      ultimoToque = { t: agora, x: e.clientX, y: e.clientY };
+    }
+  }
+  quadroZoom.addEventListener("pointerup", soltar);
+  quadroZoom.addEventListener("pointercancel", soltar);
+
+  quadroZoom.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const [fx, fy] = pontoLocal(e.clientX, e.clientY);
+    zoomEm(fx, fy, z.s * (e.deltaY < 0 ? 1.25 : 0.8), true);
+  }, { passive: false });
+
+  $("visor-zoom").addEventListener("click", () => {
+    if (z.s > 1) return resetarZoom();
+    zoomEm(quadroZoom.clientWidth / 2, quadroZoom.clientHeight / 2, 2.5, true);
+  });
+
+  $("visor-baixar").addEventListener("click", async () => {
+    const { mem, foto } = fotosVisiveis[atual];
+    try {
+      const a = el("a");
+      a.href = await carregarFoto(foto.g);
+      const n = fotosVisiveis.filter((x) => x.mem === mem).findIndex((x) => x.foto === foto) + 1;
+      a.download = `${mem.data} ${mem.titulo}`.replace(/[\\/:*?"<>|]+/g, "").trim() + (mem.fotos.length > 1 ? ` (${n})` : "") + ".jpg";
+      document.body.append(a);
+      a.click();
+      a.remove();
+    } catch {
+      avisar("Não deu pra baixar essa foto 🥺", true);
+    }
+  });
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (!$("editor").hidden) return fecharModal("editor");
       if (!$("config").hidden) return fecharModal("config");
     }
     if ($("visor").hidden) return;
-    if (e.key === "Escape") fecharVisor();
+    if (e.key === "Escape" && z.s > 1) resetarZoom();
+    else if (e.key === "Escape") fecharVisor();
     else if (e.key === "ArrowRight") mostrar(atual + 1);
     else if (e.key === "ArrowLeft") mostrar(atual - 1);
     else if (e.key === " ") { e.preventDefault(); $("visor-play").click(); }
