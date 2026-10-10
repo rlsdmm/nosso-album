@@ -58,6 +58,8 @@
     <p>feito com 💜 pra tamanduazinha</p>
     <button class="link" id="trancar">🔒 trancar álbum</button>
     <button class="link" id="ativar-edicao" hidden>✏️ ativar edição</button>
+    <button class="link" id="abrir-visitante" hidden>👀 criar senha de visitante</button>
+    <p class="selo-visitante" id="selo-visitante" hidden>👀 você está vendo como visitante</p>
   </footer>
 
   <button class="botao fab" id="nova" hidden>＋ <span>Nova memória</span></button>
@@ -72,7 +74,8 @@
       <label class="rotulo">Tipo <select id="ed-tipo"></select></label>
     </div>
     <label class="rotulo">Título <input id="ed-titulo" maxlength="120" placeholder="O dia em que…" required></label>
-    <label class="rotulo">O que aconteceu <textarea id="ed-texto" rows="4" placeholder="Conta aqui como foi 💜"></textarea></label>
+    <label class="rotulo fala-campo luisi">💙 Luisi escreveu <textarea id="ed-texto-luisi" rows="3" placeholder="Conta aqui como foi…"></textarea></label>
+    <label class="rotulo fala-campo mozao">🩷 Mozão escreveu <textarea id="ed-texto-mozao" rows="3" placeholder="Conta aqui como foi…"></textarea></label>
     <label class="rotulo">Lugar <input id="ed-lugar" maxlength="120" placeholder="opcional"></label>
     <div class="rotulo">Fotos <small>a primeira é a capa</small></div>
     <div class="ed-fotos" id="ed-fotos"></div>
@@ -104,6 +107,32 @@
       <span class="espaco"></span>
       <button type="button" class="link" id="cfg-cancelar">cancelar</button>
       <button type="submit" class="botao" id="cfg-salvar">Ativar</button>
+    </div>
+  </form>
+</div>
+
+<!-- ───── Senha de visitante ───── -->
+<div id="visitante" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="visitante-titulo">
+  <form id="form-visitante" class="painel" autocomplete="off">
+    <h2 id="visitante-titulo">Senha de visitante 👀</h2>
+    <p id="vis-explica"></p>
+    <label class="rotulo">Senha de visitante <input type="text" id="vis-senha" placeholder="uma senha diferente da nossa" spellcheck="false" autocapitalize="off" required></label>
+    <div id="vis-migrar" hidden>
+      <p class="nota">Só na primeira vez: pra visitante não conseguir editar, a chave do GitHub vai passar a ser protegida só pela senha principal. Como a chave atual ficou guardada nos registros antigos do álbum, ela precisa ser trocada:</p>
+      <ol class="passos">
+        <li>Abra <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">github.com/settings/personal-access-tokens</a></li>
+        <li>Clique na chave <b>album</b> → <b>Regenerate token</b></li>
+        <li>Copie a chave nova e cole aqui embaixo</li>
+      </ol>
+      <label class="rotulo">Chave nova do GitHub <input type="password" id="vis-token" placeholder="github_pat_…" spellcheck="false" autocapitalize="off"></label>
+      <label class="rotulo">Nossa senha principal <input type="password" id="vis-principal" placeholder="a que vocês usam pra editar" spellcheck="false" autocapitalize="off"></label>
+    </div>
+    <p class="ed-status" id="vis-status" role="status"></p>
+    <div class="ed-acoes">
+      <button type="button" class="link perigo" id="vis-remover" hidden>remover senha de visitante</button>
+      <span class="espaco"></span>
+      <button type="button" class="link" id="vis-cancelar">cancelar</button>
+      <button type="submit" class="botao">Salvar</button>
     </div>
   </form>
 </div>

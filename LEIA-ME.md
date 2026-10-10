@@ -16,7 +16,16 @@ No ar em https://rlsdmm.github.io/nosso-album/
 2. Depois disso, quem souber a senha vê:
    - **＋** pra criar uma memória nova, com fotos direto do celular;
    - **✏️** em cada memória, pra editar, trocar a capa, tirar fotos ou apagar.
-3. Salvou, em uns minutinhos aparece em todos os celulares.
+3. Cada memória tem dois espaços de texto: 💙 Luisi (azul) e 🩷 Mozão (rosa).
+4. Salvou, em uns minutinhos aparece em todos os celulares.
+
+## Senha de visitante
+
+Lá embaixo, **👀 criar senha de visitante**. Quem entra com ela só vê: nada de editar, adicionar ou apagar.
+
+- A senha principal abre as fotos e a chave de edição; a de visitante abre só as fotos.
+- Remover ou trocar a senha de visitante vale pra quem ainda não entrou. Quem já entrou e marcou
+  "lembrar neste aparelho" continua vendo naquele aparelho (as fotos teriam que ser criptografadas de novo).
 
 As fotos são reduzidas e perdem os dados escondidos (GPS, modelo do celular) antes de criptografar.
 

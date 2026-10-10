@@ -8,6 +8,12 @@
     momento:   { icone: "✨", nome: "Momento",   plural: "Momentos" },
     especial:  { icone: "💍", nome: "Especial",  plural: "Especiais" },
   };
+  const PESSOAS = {
+    luisi: { nome: "Luisi", icone: "💙" },
+    mozao: { nome: "Mozão", icone: "🩷" },
+  };
+  // Memórias antigas tinham um texto só, escrito pelo Luisi.
+  const textosDe = (m) => m.textos || { luisi: m.texto || "" };
   const CHAVE_SALVA = "album-chave";
   const TEMPO_SLIDE = 4500;
   const TAMANHOS = { m: [720, 0.8], g: [1800, 0.84] }; // igual ao publicar.py
@@ -31,6 +37,8 @@
   let chave = null;   // CryptoKey AES-GCM
   let meta = null;    // { config, memorias }
   let token = null;   // chave de edição do GitHub (fica criptografada no album.json)
+  let chaveEdicao = null; // protege o token; só quem tem a senha principal tem
+  let papel = "dono";     // "dono" (senha principal) ou "visitante" (só vê)
   let filtro = "todos";
   let fotosVisiveis = []; // [{ mem, foto }] na ordem da linha do tempo
   const urls = new Map();
@@ -49,22 +57,25 @@
   // Igual ao publicar.py: maiúsculas e espaços extras não importam.
   const normalizar = (s) => s.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
 
-  async function derivar(senha) {
+  async function derivar(senha, sal = album.sal) {
     const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(normalizar(senha)), "PBKDF2", false, ["deriveKey"]);
     return crypto.subtle.deriveKey(
-      { name: "PBKDF2", salt: b64(album.sal), iterations: album.iteracoes, hash: "SHA-256" },
+      { name: "PBKDF2", salt: b64(sal), iterations: album.iteracoes, hash: "SHA-256" },
       base, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]
     );
   }
+
+  const importarChave = (raw) => crypto.subtle.importKey("raw", raw, "AES-GCM", true, ["encrypt", "decrypt"]);
+  const exportarChave = async (k) => paraB64(await crypto.subtle.exportKey("raw", k));
 
   async function decifrar(k, dados) {
     const bytes = dados instanceof Uint8Array ? dados : new Uint8Array(dados);
     return crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes.slice(0, 12) }, k, bytes.slice(12));
   }
 
-  async function cifrar(dados) {
+  async function cifrar(dados, k = chave) {
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, chave, dados));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, k, dados));
     const saida = new Uint8Array(12 + ct.length);
     saida.set(iv);
     saida.set(ct, 12);
@@ -72,17 +83,35 @@
   }
 
   const lerTexto = async (k, campo) => new TextDecoder().decode(await decifrar(k, b64(campo)));
+  const cifrarTexto = async (texto, k) => paraB64(await cifrar(new TextEncoder().encode(texto), k));
 
-  async function abrirCom(k, dados = album) {
+  // Três chaves:
+  //  - chave (fotos e textos): sai da senha principal; o visitante recebe uma cópia dela.
+  //  - chaveEdicao: também sai da senha principal (outro sal) e protege a chave do GitHub.
+  //    O visitante não tem essa, então não consegue editar.
+  //  - a do visitante só serve pra destrancar uma cópia da `chave` (album.visitante).
+  async function abrirCom(k, dados = album, kEdicao = chaveEdicao, comoVisitante = papel === "visitante") {
     const novo = JSON.parse(await lerTexto(k, dados.meta));
     let tk = null;
-    if (dados.token) {
-      try { tk = await lerTexto(k, dados.token); } catch { tk = null; }
+    const kToken = dados.sal_edicao ? kEdicao : k; // álbum antigo: chave do GitHub ficava junto com as fotos
+    if (dados.token && kToken && !comoVisitante) {
+      try { tk = await lerTexto(kToken, dados.token); } catch { tk = null; }
     }
     chave = k;
+    chaveEdicao = kEdicao;
+    papel = comoVisitante ? "visitante" : "dono";
     album = dados;
     meta = novo;
     token = tk;
+  }
+
+  async function lembrarAparelho() {
+    guardar.salvar({
+      sal: album.sal,
+      papel,
+      k: await exportarChave(chave),
+      ...(chaveEdicao ? { ke: await exportarChave(chaveEdicao) } : {}),
+    });
   }
 
   function carregarFoto(nome) {
@@ -139,14 +168,21 @@
     }
 
     const salva = guardar.ler();
-    if (salva?.sal === album.sal) {
+    const visitante = salva?.papel === "visitante";
+    // Aparelho lembrado antes da senha de visitante existir: precisa digitar a senha uma vez
+    // pra ganhar a chave de edição nova.
+    const faltaEdicao = !visitante && album.sal_edicao && !salva?.ke;
+    if (salva?.sal === album.sal && !faltaEdicao) {
       try {
-        const k = await crypto.subtle.importKey("raw", b64(salva.k), "AES-GCM", true, ["encrypt", "decrypt"]);
-        await abrirCom(k);
+        const k = await importarChave(b64(salva.k));
+        const ke = salva.ke ? await importarChave(b64(salva.ke)) : null;
+        await abrirCom(k, album, ke, visitante);
         return entrar(false);
       } catch {
         guardar.apagar();
       }
+    } else if (salva) {
+      guardar.apagar();
     }
     $("senha").focus();
   }
@@ -164,11 +200,21 @@
     botao.textContent = "abrindo…";
     mostrarErro("");
     try {
-      const k = await derivar(senha);
-      await abrirCom(k);
-      if ($("lembrar").checked) {
-        guardar.salvar({ sal: album.sal, k: paraB64(await crypto.subtle.exportKey("raw", k)) });
+      // Testa a senha principal e a de visitante ao mesmo tempo (cada uma leva ~1s no celular).
+      const [k, kVis] = await Promise.all([
+        derivar(senha),
+        album.visitante ? derivar(senha, album.visitante.sal) : null,
+      ]);
+      try {
+        await lerTexto(k, album.meta);
+        const ke = album.sal_edicao ? await derivar(senha, album.sal_edicao) : null;
+        await abrirCom(k, album, ke, false);
+      } catch {
+        if (!kVis) throw new Error("senha");
+        const kFotos = await importarChave(await decifrar(kVis, b64(album.visitante.chave)));
+        await abrirCom(kFotos, album, null, true);
       }
+      if ($("lembrar").checked) await lembrarAparelho();
       $("form-senha").classList.add("abrindo");
       setTimeout(() => entrar(true), 650);
     } catch {
@@ -248,8 +294,11 @@
 
     const podeEditar = Boolean(token && REPO);
     $("nova").hidden = !podeEditar;
-    $("ativar-edicao").hidden = !REPO;
+    $("ativar-edicao").hidden = !REPO || papel === "visitante";
     $("ativar-edicao").textContent = podeEditar ? "🔑 trocar chave de edição" : "✏️ ativar edição";
+    $("abrir-visitante").hidden = !podeEditar;
+    $("abrir-visitante").textContent = album.visitante ? "👀 senha de visitante (ativa)" : "👀 criar senha de visitante";
+    $("selo-visitante").hidden = papel !== "visitante";
 
     if (filtro !== "todos" && !meta.memorias.some((m) => m.tipo === filtro)) filtro = "todos";
     criarFiltros();
@@ -371,7 +420,13 @@
       const topo = el("div");
       topo.append(el("span", "data", diaPorExtenso(m.data)), el("span", "tipo", tipo.nome));
       cartao.append(topo, el("h3", null, m.titulo));
-      if (m.texto) cartao.append(el("p", null, m.texto));
+      const textos = textosDe(m);
+      for (const [quem, p] of Object.entries(PESSOAS)) {
+        if (!textos[quem]) continue;
+        const fala = el("div", `fala ${quem}`);
+        fala.append(el("span", "quem", `${p.icone} ${p.nome}`), el("p", null, textos[quem]));
+        cartao.append(fala);
+      }
       if (m.lugar) cartao.append(el("p", "lugar", `📍 ${m.lugar}`));
 
       item.append(cartao);
@@ -633,6 +688,7 @@
     if (e.key === "Escape") {
       if (!$("editor").hidden) return fecharModal("editor");
       if (!$("config").hidden) return fecharModal("config");
+      if (!$("visitante").hidden) return fecharModal("visitante");
     }
     if ($("visor").hidden) return;
     if (e.key === "Escape" && z.s > 1) resetarZoom();
@@ -733,7 +789,9 @@
     document.body.style.overflow = "";
   }
 
-  function progresso(texto, erro = false, alvo = $("editor").hidden ? $("cfg-status") : $("ed-status")) {
+  const statusAberto = () => (!$("editor").hidden ? $("ed-status") : !$("visitante").hidden ? $("vis-status") : $("cfg-status"));
+
+  function progresso(texto, erro = false, alvo = statusAberto()) {
     alvo.textContent = texto;
     alvo.classList.toggle("ruim", erro);
   }
@@ -760,7 +818,9 @@
     $("ed-data").value = mem?.data || hojeISO();
     $("ed-tipo").value = mem?.tipo || "encontro";
     $("ed-titulo").value = mem?.titulo || "";
-    $("ed-texto").value = mem?.texto || "";
+    const textos = mem ? textosDe(mem) : {};
+    $("ed-texto-luisi").value = textos.luisi || "";
+    $("ed-texto-mozao").value = textos.mozao || "";
     $("ed-lugar").value = mem?.lugar || "";
     $("ed-apagar").hidden = !mem;
     $("ed-apagar").textContent = "apagar memória";
@@ -858,7 +918,7 @@
       data: $("ed-data").value,
       tipo: $("ed-tipo").value,
       titulo: $("ed-titulo").value.trim(),
-      texto: $("ed-texto").value.trim(),
+      textos: { luisi: $("ed-texto-luisi").value.trim(), mozao: $("ed-texto-mozao").value.trim() },
       lugar: $("ed-lugar").value.trim(),
     };
     if (!dados.data || !dados.titulo) return progresso("Coloca pelo menos a data e o título 💜", true);
@@ -942,7 +1002,7 @@
     $("cfg-salvar").disabled = true;
     progresso("testando a chave…");
     try {
-      const token64 = paraB64(await cifrar(new TextEncoder().encode(nova)));
+      const token64 = await cifrarTexto(nova, album.sal_edicao ? chaveEdicao : chave);
       // Salvar a própria chave já é o teste: só funciona se ela puder escrever no repositório.
       const novo = await commitar("Ativa edição pelo site", [], async (remoto) => ({ album: { ...remoto, token: token64 }, apagar: [] }), nova);
       await abrirCom(chave, novo);
@@ -958,6 +1018,113 @@
     } finally {
       $("cfg-salvar").disabled = false;
     }
+  });
+
+  // ───────────── senha de visitante ─────────────
+
+  // Antes da primeira senha de visitante, a chave do GitHub fica protegida pela mesma chave das fotos.
+  const precisaSepararChaves = () => Boolean(album.token && !album.sal_edicao);
+
+  $("abrir-visitante").addEventListener("click", () => {
+    const separar = precisaSepararChaves();
+    $("vis-migrar").hidden = !separar;
+    $("vis-principal").required = separar;
+    $("vis-token").required = separar;
+    $("vis-remover").hidden = !album.visitante;
+    $("vis-remover").textContent = "remover senha de visitante";
+    delete $("vis-remover").dataset.certeza;
+    $("vis-explica").textContent = album.visitante
+      ? "Já existe uma senha de visitante. Dá pra trocar por outra ou remover."
+      : "Quem entrar com essa senha só consegue ver o álbum: nada de editar, adicionar ou apagar.";
+    for (const id of ["vis-senha", "vis-principal", "vis-token"]) $(id).value = "";
+    progresso("", false, $("vis-status"));
+    abrirModal("visitante");
+    $("vis-senha").focus();
+  });
+  $("vis-cancelar").addEventListener("click", () => fecharModal("visitante"));
+
+  async function salvarVisitante(mensagem, mudar, chaveTeste) {
+    salvando = true;
+    $("form-visitante").querySelectorAll("input, button").forEach((x) => { x.disabled = true; });
+    try {
+      const novo = await commitar(mensagem, [], async (remoto) => ({ album: await mudar({ ...remoto }), apagar: [] }), chaveTeste);
+      await abrirCom(chave, novo);
+      if (guardar.ler()) await lembrarAparelho();
+      salvando = false;
+      fecharModal("visitante");
+      montarTela();
+      return true;
+    } catch (e) {
+      salvando = false;
+      progresso(erroAoSalvar(e), true, $("vis-status"));
+      return false;
+    } finally {
+      $("form-visitante").querySelectorAll("input, button").forEach((x) => { x.disabled = false; });
+    }
+  }
+
+  $("form-visitante").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    if (salvando) return;
+    const status = $("vis-status");
+    const senhaVis = $("vis-senha").value;
+    if (normalizar(senhaVis).length < 6) return progresso("A senha de visitante precisa ter pelo menos 6 letras.", true, status);
+
+    progresso("conferindo…", false, status);
+    try {
+      await lerTexto(await derivar(senhaVis), album.meta);
+      return progresso("Essa é a senha principal! A de visitante tem que ser diferente 🙂", true, status);
+    } catch { /* ótimo: é diferente da principal */ }
+
+    let novaChaveEdicao = null;
+    let novoToken = null;
+    if (precisaSepararChaves()) {
+      try {
+        await lerTexto(await derivar($("vis-principal").value), album.meta);
+      } catch {
+        return progresso("A senha principal não confere 🥺", true, status);
+      }
+      novoToken = $("vis-token").value.trim();
+      if (!novoToken) return progresso("Cola a chave nova do GitHub 💜", true, status);
+      const salEdicao = paraB64(crypto.getRandomValues(new Uint8Array(16)));
+      novaChaveEdicao = { sal: salEdicao, k: await derivar($("vis-principal").value, salEdicao) };
+    }
+
+    progresso("salvando…", false, status);
+    const salVis = paraB64(crypto.getRandomValues(new Uint8Array(16)));
+    const kVis = await derivar(senhaVis, salVis);
+    const copiaDaChave = paraB64(await cifrar(new Uint8Array(await crypto.subtle.exportKey("raw", chave)), kVis));
+
+    const ok = await salvarVisitante("Senha de visitante", async (a) => {
+      a.visitante = { sal: salVis, chave: copiaDaChave };
+      if (novaChaveEdicao) {
+        a.sal_edicao = novaChaveEdicao.sal;
+        a.token = await cifrarTexto(novoToken, novaChaveEdicao.k);
+      }
+      return a;
+    }, novoToken || undefined);
+
+    if (ok) {
+      if (novaChaveEdicao) {
+        chaveEdicao = novaChaveEdicao.k;
+        await abrirCom(chave, album, chaveEdicao, false);
+        if (guardar.ler()) await lembrarAparelho();
+        montarTela();
+      }
+      avisar("Senha de visitante pronta! 👀 Quem usar ela só consegue ver.");
+    }
+  });
+
+  $("vis-remover").addEventListener("click", async () => {
+    const botao = $("vis-remover");
+    if (!botao.dataset.certeza) {
+      botao.dataset.certeza = "1";
+      botao.textContent = "toca de novo pra remover";
+      return;
+    }
+    progresso("salvando…", false, $("vis-status"));
+    const ok = await salvarVisitante("Remove senha de visitante", async (a) => { delete a.visitante; return a; });
+    if (ok) avisar("Senha de visitante removida.");
   });
 
   // ───────────── enfeites ─────────────
