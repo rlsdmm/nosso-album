@@ -14,6 +14,20 @@ if ($p1 -ne $p2) {
 $env:ALBUM_SENHA = $p1
 try {
     python publicar.py
+    $ok = $LASTEXITCODE -eq 0
 } finally {
     Remove-Item Env:ALBUM_SENHA -ErrorAction SilentlyContinue
+}
+if (-not $ok) { exit 1 }
+
+Write-Host ""
+$enviar = Read-Host "Enviar pro site agora? (S/n)"
+if ($enviar -eq "n") { exit 0 }
+
+git add -A
+git commit -q -m "Atualiza memorias"
+git push -q
+if ($LASTEXITCODE -eq 0) {
+    Write-Host ""
+    Write-Host "Enviado! Em 1 minutinho aparece no site." -ForegroundColor Magenta
 }
