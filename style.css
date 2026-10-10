@@ -310,6 +310,107 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .chuva i { position: absolute; bottom: -40px; font-style: normal; animation: subir 2.6s ease-out forwards; }
 @keyframes subir { to { transform: translateY(-115vh) rotate(var(--r)); opacity: 0; } }
 
+/* ───── edição ───── */
+.rodape .link { display: inline-block; margin: 4px 8px; }
+.cartao { position: relative; }
+.editar {
+  position: absolute;
+  top: -12px; right: -10px;
+  z-index: 2;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 2px solid var(--lilas);
+  background: var(--papel);
+  box-shadow: var(--sombra);
+  font-size: 1rem;
+  transition: transform .15s;
+}
+.editar:hover { transform: scale(1.1) rotate(-8deg); }
+
+.fab {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 20;
+  padding: 14px 22px;
+  font-size: 1rem;
+}
+
+.modal {
+  position: fixed; inset: 0; z-index: 40;
+  display: grid; place-items: center;
+  padding: 16px;
+  background: rgba(18, 8, 28, .6);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+  animation: aparecer .25s;
+}
+.painel {
+  width: min(520px, 100%);
+  background: var(--papel);
+  border-radius: 24px;
+  padding: 24px 22px 20px;
+  box-shadow: var(--sombra-forte);
+  animation: chegar .4s cubic-bezier(.2, .9, .3, 1.2);
+}
+.painel h2 { font-family: var(--manuscrito); font-size: 2.2rem; color: var(--roxo-forte); margin: 0 0 12px; }
+.painel p { line-height: 1.5; margin: 0 0 10px; }
+.painel a { color: var(--roxo-forte); word-break: break-all; }
+.passos { padding-left: 20px; line-height: 1.7; margin: 0 0 14px; font-size: .95rem; }
+.rotulo { display: block; font-weight: 700; font-size: .9rem; margin: 0 0 12px; }
+.rotulo small { font-weight: 500; color: var(--suave); }
+.rotulo input, .rotulo select, .rotulo textarea {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 2px solid var(--lilas);
+  background: var(--fundo);
+  color: var(--tinta);
+  font: inherit;
+  font-weight: 500;
+  outline: none;
+}
+.rotulo textarea { resize: vertical; min-height: 90px; }
+.rotulo input:focus, .rotulo select:focus, .rotulo textarea:focus { border-color: var(--roxo); }
+.dupla { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+
+.ed-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.ed-foto, .ed-add { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--lilas); }
+.ed-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ed-foto.capa { outline: 3px solid var(--rosa); outline-offset: -3px; }
+.selo-capa { position: absolute; left: 6px; bottom: 6px; background: var(--rosa); color: #fff; font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.ed-btn { position: absolute; top: 5px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(30, 12, 45, .7); color: #fff; font-size: .8rem; display: grid; place-items: center; }
+.ed-tirar { right: 5px; }
+.ed-capa { left: 5px; }
+.ed-add { display: grid; place-content: center; text-align: center; cursor: pointer; border: 2px dashed var(--roxo); background: transparent; color: var(--roxo-forte); }
+.ed-add span { font-size: 1.8rem; line-height: 1; }
+.ed-add small { font-weight: 700; }
+.ed-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.ed-status { min-height: 1.4em; font-weight: 600; color: var(--roxo-forte); font-size: .92rem; }
+.ed-status.ruim { color: var(--rosa); }
+.ed-acoes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.espaco { flex: 1; }
+.perigo { color: var(--rosa); }
+button:disabled { cursor: wait; opacity: .6; }
+
+.aviso {
+  position: fixed;
+  left: 50%; bottom: 90px;
+  transform: translateX(-50%);
+  z-index: 70;
+  width: max-content; max-width: calc(100% - 32px);
+  background: var(--tinta);
+  color: var(--fundo);
+  padding: 12px 20px;
+  border-radius: 14px;
+  font-weight: 600;
+  box-shadow: var(--sombra-forte);
+  animation: chegar .35s;
+}
+.aviso.ruim { background: var(--rosa); color: #fff; }
+
 /* ───── celular ───── */
 @media (max-width: 760px) {
   .linha::before { left: 30px; }
@@ -319,6 +420,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .ant, .prox { top: auto; bottom: 64px; transform: none; }
   .visor-foto { padding: 70px 12px 130px; }
   .visor-polaroid img { max-height: calc(100vh - 290px); }
+  .ed-acoes .botao { flex: 1 0 100%; order: 3; }
+  .rotulo select { padding-left: 10px; padding-right: 6px; }
+  .fab span { display: none; }
+  .fab { width: 58px; height: 58px; padding: 0; font-size: 1.6rem; }
+  .editar { right: -6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -57,8 +57,58 @@
   <footer class="rodape">
     <p>feito com 💜 pra tamanduazinha</p>
     <button class="link" id="trancar">🔒 trancar álbum</button>
+    <button class="link" id="ativar-edicao" hidden>✏️ ativar edição</button>
   </footer>
+
+  <button class="botao fab" id="nova" hidden>＋ <span>Nova memória</span></button>
 </div>
+
+<!-- ───── Editar memória ───── -->
+<div id="editor" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="editor-titulo">
+  <form id="form-editor" class="painel" novalidate>
+    <h2 id="editor-titulo">Nova memória</h2>
+    <div class="dupla">
+      <label class="rotulo">Data <input type="date" id="ed-data" required></label>
+      <label class="rotulo">Tipo <select id="ed-tipo"></select></label>
+    </div>
+    <label class="rotulo">Título <input id="ed-titulo" maxlength="120" placeholder="O dia em que…" required></label>
+    <label class="rotulo">O que aconteceu <textarea id="ed-texto" rows="4" placeholder="Conta aqui como foi 💜"></textarea></label>
+    <label class="rotulo">Lugar <input id="ed-lugar" maxlength="120" placeholder="opcional"></label>
+    <div class="rotulo">Fotos <small>a primeira é a capa</small></div>
+    <div class="ed-fotos" id="ed-fotos"></div>
+    <p class="ed-status" id="ed-status" role="status"></p>
+    <div class="ed-acoes">
+      <button type="button" class="link perigo" id="ed-apagar">apagar memória</button>
+      <span class="espaco"></span>
+      <button type="button" class="link" id="ed-cancelar">cancelar</button>
+      <button type="submit" class="botao">Salvar 💜</button>
+    </div>
+  </form>
+</div>
+
+<!-- ───── Chave de edição ───── -->
+<div id="config" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="config-titulo">
+  <form id="form-config" class="painel" autocomplete="off">
+    <h2 id="config-titulo">Ativar edição ✏️</h2>
+    <p>Pra salvar pelo site, o álbum precisa de uma chave do GitHub que só mexe nele. Ela fica guardada criptografada com a nossa senha.</p>
+    <ol class="passos">
+      <li>Abra <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li>
+      <li>Nome: <b>album</b>. Validade: a maior que tiver.</li>
+      <li>Repository access: <b>Only select repositories</b> → <b>nosso-album</b></li>
+      <li>Permissions → Repository → <b>Contents: Read and write</b></li>
+      <li>Clique em <b>Generate token</b> e cole aqui embaixo</li>
+    </ol>
+    <label class="rotulo">Chave <input type="password" id="cfg-token" placeholder="github_pat_…" spellcheck="false" autocapitalize="off"></label>
+    <p class="ed-status" id="cfg-status" role="status"></p>
+    <div class="ed-acoes">
+      <span class="espaco"></span>
+      <button type="button" class="link" id="cfg-cancelar">cancelar</button>
+      <button type="submit" class="botao" id="cfg-salvar">Ativar</button>
+    </div>
+  </form>
+</div>
+
+<div id="aviso" class="aviso" role="status" hidden></div>
 
 <!-- ───── Foto em tela cheia ───── -->
 <div id="visor" class="visor" hidden role="dialog" aria-modal="true" aria-label="Foto">

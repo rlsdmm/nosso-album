@@ -202,6 +202,9 @@ def processar(caminho, chave, cache, usados):
 
 
 def main():
+    if ALBUM.exists() and "token" in json.loads(ALBUM.read_text("utf-8")):
+        falhar("O álbum agora é editado pelo próprio site (botões ✏️ e ＋).\n"
+               "  Rodar este script apagaria o que vocês editaram por lá.")
     config, memorias = ler_memorias()
     sal, chave = obter_chave()
     SAIDA_FOTOS.mkdir(parents=True, exist_ok=True)

@@ -1,45 +1,35 @@
 # Nosso álbum 💜
 
 Álbum de fotos em linha do tempo, protegido por senha com criptografia de verdade.
+No ar em https://rlsdmm.github.io/nosso-album/
 
 ## Como funciona
 
-- `privado/`: fotos originais e o `memorias.txt`. **Nunca vai pro GitHub** (está no `.gitignore`).
-- `dados/`: versão criptografada, gerada pelo `publicar.py`. É o que vai pro GitHub.
-  Sem a senha, isso é só um monte de dado embaralhado.
-- `index.html`, `style.css`, `app.js`: o site. Destrancam o álbum no navegador com a senha.
+- `index.html`, `style.css`, `app.js`: o site. Destranca o álbum no navegador com a senha.
+- `dados/`: fotos e textos criptografados. Sem a senha, é só um monte de dado embaralhado.
+- `privado/`: fotos originais. **Nunca vai pro GitHub** (está no `.gitignore`).
 
-## Adicionar memórias
+## Editar pelo site
 
-1. Coloque as fotos em `privado/fotos/` (uma pasta por encontro também funciona).
-2. Escreva a memória em `privado/memorias.txt`:
+1. Lá embaixo no álbum, toque em **✏️ ativar edição** e siga os passos pra criar a chave do GitHub
+   (só precisa fazer uma vez; a chave fica guardada criptografada com a senha do álbum).
+2. Depois disso, quem souber a senha vê:
+   - **＋** pra criar uma memória nova, com fotos direto do celular;
+   - **✏️** em cada memória, pra editar, trocar a capa, tirar fotos ou apagar.
+3. Salvou, em uns minutinhos aparece em todos os celulares.
 
-   ```
-   ## 26/09/2026 | especial | O pedido
-   fotos: pedido.jpg, praia/
-   lugar: Em casa
-   Você disse sim!!
-   ```
+As fotos são reduzidas e perdem os dados escondidos (GPS, modelo do celular) antes de criptografar.
 
-   Tipos: `encontro`, `comidinha`, `passeio`, `momento`, `especial`.
-3. Gere o álbum (ele pede a senha e mostra asteriscos):
-
-   ```
-   powershell -NoProfile -ExecutionPolicy Bypass -File publicar.ps1
-   ```
-
-4. Publique:
-
-   ```
-   git add -A
-   git commit -m "novas memórias"
-   git push
-   ```
+Se a chave do GitHub expirar, o site avisa. É só criar outra e colar em **🔑 trocar chave de edição**.
 
 ## Sobre a senha
 
 - Maiúsculas e espaços extras não importam (o corretor do celular não atrapalha).
-- Se esquecer a senha, o site não abre mais, mas as originais continuam em `privado/`:
-  é só rodar `publicar.py` de novo com uma senha nova.
-- As fotos são reduzidas e perdem os dados escondidos (GPS, modelo do celular) antes de criptografar.
-- **Backup:** as originais só existem no PC. De vez em quando, copie `privado/` pra outro lugar.
+- Se esquecer a senha, o álbum não abre mais. Guarde ela num lugar seguro.
+
+## Mexer no código pelo PC
+
+O site salva direto no GitHub, então antes de mexer aqui rode `git pull`.
+
+O `publicar.py` / `publicar.ps1` (jeito antigo, pelo `privado/memorias.txt`) foi travado depois que a
+edição pelo site foi ativada, porque ele apagaria o que foi editado por lá.
