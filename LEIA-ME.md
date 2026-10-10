@@ -22,10 +22,10 @@
    ```
 
    Tipos: `encontro`, `comidinha`, `passeio`, `momento`, `especial`.
-3. Gere o álbum (ele pede a senha):
+3. Gere o álbum (ele pede a senha e mostra asteriscos):
 
    ```
-   python publicar.py
+   powershell -NoProfile -ExecutionPolicy Bypass -File publicar.ps1
    ```
 
 4. Publique:
