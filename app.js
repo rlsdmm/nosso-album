@@ -120,8 +120,7 @@
         .then((r) => {
           if (r.ok) return r.arrayBuffer();
           // Foto recém-salva pelo site ainda não chegou no GitHub Pages: busca direto no repositório.
-          if (token && REPO) return gh(`/contents/dados/f/${nome}.bin`, { cru: true }).then((x) => x.arrayBuffer());
-          throw new Error(r.status);
+          return lerDoRepositorio(`dados/f/${nome}.bin`).then((x) => x.arrayBuffer());
         })
         .then((buf) => decifrar(chave, buf))
         .then((jpg) => URL.createObjectURL(new Blob([jpg], { type: "image/jpeg" })));
@@ -130,6 +129,21 @@
     }
     return urls.get(nome);
   }
+
+  // O GitHub Pages leva de 1 a 10 minutos pra mostrar o que acabou de ser salvo, então
+  // a versão mais nova é lida direto do repositório (público: não precisa de chave).
+  async function lerDoRepositorio(caminho) {
+    if (!REPO) throw new Error("sem repositório");
+    const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${caminho}?ref=main`, {
+      cache: "no-store",
+      headers: { Accept: "application/vnd.github.raw+json" },
+    });
+    if (r.ok) return r;
+    if (token) return gh(`/contents/${caminho}?ref=main`, { cru: true }); // limite de acessos sem chave
+    throw new Error(`GitHub ${r.status}`);
+  }
+
+  const lerAlbumFresco = () => lerDoRepositorio("dados/album.json").then((r) => r.json()).catch(() => null);
 
   const guardar = {
     ler() { try { return JSON.parse(localStorage.getItem(CHAVE_SALVA)); } catch { return null; } },
@@ -159,9 +173,12 @@
     if (!window.crypto?.subtle) return mostrarErro("Esse navegador não consegue abrir o álbum 🥺");
 
     try {
-      const r = await fetch("dados/album.json", { cache: "no-cache" });
-      if (!r.ok) throw new Error();
-      album = await r.json();
+      const [doSite, fresco] = await Promise.all([
+        fetch("dados/album.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        lerAlbumFresco(),
+      ]);
+      album = fresco || doSite;
+      if (!album) throw new Error();
     } catch {
       $("abrir").disabled = true;
       return mostrarErro("O álbum ainda está sendo preparado… 💜");
@@ -253,15 +270,27 @@
   // O GitHub Pages pode demorar alguns minutos pra mostrar o que foi salvo pelo site;
   // quem pode editar já busca a versão mais nova direto no repositório.
   async function atualizarDoRepositorio() {
-    if (!token || !REPO) return;
-    try {
-      const fresco = JSON.parse(await (await gh("/contents/dados/album.json?ref=main", { cru: true })).text());
-      if (fresco.meta !== album.meta || fresco.token !== album.token) {
+    const fresco = await lerAlbumFresco();
+    if (!fresco || fresco.sal !== album.sal) return;
+    if (fresco.meta !== album.meta || fresco.token !== album.token || fresco.sal_edicao !== album.sal_edicao) {
+      try {
         await abrirCom(chave, fresco);
         montarTela();
-      }
+      } catch { /* mantém o que já está na tela */ }
+    }
+  }
+
+  // Se a chave do GitHub foi trocada em outro aparelho, busca a nova e tenta mais uma vez.
+  async function comChaveAtual(acao) {
+    try {
+      return await acao();
     } catch (e) {
-      if (e.codigo === "chave") avisar("A chave de edição expirou ou foi apagada. Dá pra colocar outra em ✏️ lá embaixo.", true);
+      if (e.codigo !== "chave") throw e;
+      const fresco = await lerAlbumFresco();
+      if (!fresco || (fresco.token === album.token && fresco.sal_edicao === album.sal_edicao)) throw e;
+      await abrirCom(chave, fresco);
+      if (!token) throw Object.assign(new Error("senha"), { codigo: "senha" });
+      return acao();
     }
   }
 
@@ -760,13 +789,13 @@
   }
 
   async function salvarMeta(mensagem, novosArquivos, mexer) {
-    const novo = await commitar(mensagem, novosArquivos, async (remoto) => {
+    const novo = await comChaveAtual(() => commitar(mensagem, novosArquivos, async (remoto) => {
       const metaRemota = JSON.parse(await lerTexto(chave, remoto.meta));
       const apagar = mexer(metaRemota);
       metaRemota.memorias.sort((a, b) => a.data.localeCompare(b.data));
       const meta64 = paraB64(await cifrar(new TextEncoder().encode(JSON.stringify(metaRemota))));
       return { album: { ...remoto, meta: meta64 }, apagar };
-    });
+    }));
     await abrirCom(chave, novo);
     montarTela();
   }
@@ -906,7 +935,8 @@
   }
 
   function erroAoSalvar(e) {
-    if (e.codigo === "chave") return "A chave de edição não funcionou (expirou ou foi apagada). Coloque outra em ✏️ lá embaixo.";
+    if (e.codigo === "senha") return "A chave de edição mudou. Toca em 🔒 trancar álbum (lá embaixo) e entra de novo com a nossa senha 💜";
+    if (e.codigo === "chave") return "A chave de edição não funcionou (expirou ou foi apagada). Gera outra no GitHub e cola em 🔑 trocar chave de edição.";
     if (e.message === "conflito") return "Alguém salvou ao mesmo tempo. Tenta de novo 💜";
     return "Não deu pra salvar. Confere a internet e tenta de novo 🥺";
   }
